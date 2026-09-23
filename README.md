@@ -2,7 +2,7 @@
 BlackJack su rete mesh
 
 ## Architettura
-
+```
 ┌────────────────────────────────────────────────────────┐
 │                   Interfaccia Utente                   │
 │          (TUI con Ratatui / CLI da terminale)          │
@@ -30,3 +30,4 @@ BlackJack su rete mesh
 │   - Broadcaster (Advertising via Manufacturer Data)    │
 │   - Listener (Scanning continuo dei vicini)            │
 └────────────────────────────────────────────────────────┘
+```

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = [
+	"bjle-engine",
+	"bjle-mesh",
+	"bjle-protocol",
+	"bjle-tui",
+]
+
+[workspace.dependencies]
+# Crate interni
+bjle_engine = { path = "bjle-engine" }
+bjle_mesh = { path = "bjle-mesh" }
+bjle_protocol = { path = "bjle-protocol" }
+
+# Dipendenze esterne
+tokio = { version = "1.53", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+bluer = { version = "0.17.4", features = ["bluetoothd"] }
+thiserror = "2.0.20"

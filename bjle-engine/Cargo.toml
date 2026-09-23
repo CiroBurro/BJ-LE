@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 bjle-shared.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true

@@ -3,15 +3,15 @@ resolver = "3"
 members = [
 	"bjle-engine",
 	"bjle-mesh",
-	"bjle-protocol",
-	"bjle-tui", "testo",
+	"bjle-shared",
+	"bjle-tui",
 ]
 
 [workspace.dependencies]
 # Crate interni
-bjle_engine = { path = "bjle-engine" }
-bjle_mesh = { path = "bjle-mesh" }
-bjle_protocol = { path = "bjle-protocol" }
+bjle-engine = { path = "bjle-engine" }
+bjle-mesh = { path = "bjle-mesh" }
+bjle-shared = { path = "bjle-shared" }
 
 # Dipendenze esterne
 tokio = { version = "1.53", features = ["full"] }

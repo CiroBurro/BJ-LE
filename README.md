@@ -34,18 +34,17 @@ BlackJack su rete mesh
 
 ## Roadmap
 
-### `bjle-protocol` — Tipi condivisi e serializzazione
+### `bjle-shared` — Tipi condivisi e serializzazione
 > Definisce i messaggi che circolano sulla mesh. Dipendenza zero degli altri crate.
 
-- [ ] Struct `Card { suit: Suit, rank: Rank }` + enum `Suit`, `Rank`
+- [X] Struct `Card { suit: Suit, rank: Rank }` + enum `Suit`, `Rank`
 - [ ] Calcolo valore mano (asso 1 o 11, logica soft hand)
-- [ ] Enum `GameEvent` — tutti i messaggi di gioco:
+- [X] Enum `GameEvent` — tutti i messaggi di gioco:
   - `Join { player_id, room_id }`
   - `Deal { seed: u64 }` (seed condiviso per mazzo deterministico)
   - `PlayerAction { player_id, action: Action }` (`Hit` / `Stand`)
-  - `StateUpdate { table: TableState }` (broadcast del dealer)
   - `Leave { player_id }`
-- [ ] Struct `MeshPacket { msg_id: u128, room_id: String, ttl: u8, payload: GameEvent }`
+- [X] Struct `MeshPacket { msg_id: u128, room_id: String, ttl: u8, payload: GameEvent }`
 - [ ] Serializzazione `serde` + `postcard` (no_std-friendly, compatto su BLE)
 - [ ] Test unitari encode/decode round-trip
 

@@ -4,7 +4,7 @@ members = [
 	"bjle-engine",
 	"bjle-mesh",
 	"bjle-protocol",
-	"bjle-tui",
+	"bjle-tui", "testo",
 ]
 
 [workspace.dependencies]

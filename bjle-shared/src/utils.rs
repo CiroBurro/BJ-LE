@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream:bjle-shared/src/utils.rs
 use crate::{Card, Suit};
+=======
+use bjle_shared::{Card, Suit};
+>>>>>>> Stashed changes:bjle-engine/src/utils.rs
 use rand::SeedableRng;
 use rand::prelude::SliceRandom;
 use rand_chacha::ChaCha8Rng;
@@ -10,6 +14,11 @@ pub fn calculate_score(hand: &Vec<Card>) -> u8 {
         if card.value == 1 {
             score += 11;
             ace_counter += 1;
+<<<<<<< Updated upstream:bjle-shared/src/utils.rs
+=======
+        } else if card.value > 10 {
+            score += 10;
+>>>>>>> Stashed changes:bjle-engine/src/utils.rs
         } else {
             score += card.value;
         }
@@ -28,18 +37,11 @@ pub fn generate_deck(seed: [u8; 32]) -> Vec<Card> {
 
     let mut deck: Vec<Card> = Vec::with_capacity(52);
 
-    for v in 1..11 {
+    for v in 1..14 {
         deck.push(Card::new(Suit::Spades, u8::from(v)));
         deck.push(Card::new(Suit::Clubs, u8::from(v)));
         deck.push(Card::new(Suit::Diamonds, u8::from(v)));
         deck.push(Card::new(Suit::Hearts, u8::from(v)));
-    }
-
-    for _v in 1..4 {
-        deck.push(Card::new(Suit::Spades, 10));
-        deck.push(Card::new(Suit::Clubs, 10));
-        deck.push(Card::new(Suit::Diamonds, 10));
-        deck.push(Card::new(Suit::Hearts, 10));
     }
 
     deck.shuffle(&mut rng);

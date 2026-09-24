@@ -7,3 +7,4 @@ edition = "2024"
 bjle-shared.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
+tokio.workspace = true

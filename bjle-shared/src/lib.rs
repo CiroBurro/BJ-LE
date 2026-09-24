@@ -1,6 +1,6 @@
-use rand::{rng, Rng};
-use sha2::{Digest, Sha256};
+use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub enum Suit {
     Spades,
@@ -20,12 +20,25 @@ impl Card {
     }
 }
 
+// Azioni di gioco
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     Hit,
     Stand,
     Double,
     Split,
+}
+
+// Azioni nella UI
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum UserAction {
+    CreateRoom { room_id: RoomId },
+    JoinRoom { room_id: RoomId },
+    StartGame,
+    PlaceBet { amount: u16 },
+    ConfirmReady,
+    Quit,
+    Play(Action),
 }
 
 pub type PlayerId = u8;
@@ -56,12 +69,31 @@ impl Player {
         let mut hash = [0u8; 16];
         hash.copy_from_slice(&full_hash[0..16]);
 
-        (Self { id, hand: Vec::new(), split_hand: None, fishes: 1000, hash, ready: false, stood: false }, seed)
+        (
+            Self {
+                id,
+                hand: Vec::new(),
+                split_hand: None,
+                fishes: 1000,
+                hash,
+                ready: false,
+                stood: false,
+            },
+            seed,
+        )
     }
 
     /// Costruisce un Player dai dati ricevuti via mesh (Join altrui).
     pub fn new_from_hash(id: PlayerId, hash: [u8; 16]) -> Self {
-        Self { id, hand: Vec::new(), split_hand: None, fishes: 1000, hash, ready: false, stood: false }
+        Self {
+            id,
+            hand: Vec::new(),
+            split_hand: None,
+            fishes: 1000,
+            hash,
+            ready: false,
+            stood: false,
+        }
     }
 
     pub fn verify_hash(seed: [u8; 16], hash: [u8; 16]) -> bool {
@@ -106,6 +138,15 @@ pub enum GameEvent {
     RevealSeed {
         player_id: PlayerId,
         seed: [u8; 16],
+    },
+    /// Late joiner chiede la lista dei player già in lobby.
+    RequestSync {
+        player_id: PlayerId,
+    },
+    /// Risposta al RequestSync: lista (id, hash) dei player presenti.
+    /// Solo il nodo con player_id minimo risponde, per evitare flood.
+    SyncResponse {
+        players: Vec<(PlayerId, [u8; 16])>,
     },
     /// Peer ha piazzato la puntata ed è pronto a iniziare il turno.
     TurnReady {

@@ -27,6 +27,7 @@ name = "bjle-shared"
 version = "0.1.0"
 dependencies = [
  "rand",
+ "rand_chacha",
  "serde",
  "sha2",
 ]

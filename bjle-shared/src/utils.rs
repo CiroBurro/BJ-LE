@@ -1,7 +1,7 @@
-use rand::prelude::SliceRandom;
+use crate::{Card, Suit};
 use rand::SeedableRng;
+use rand::prelude::SliceRandom;
 use rand_chacha::ChaCha8Rng;
-use bjle_shared::{Card, Suit};
 
 pub fn calculate_score(hand: &Vec<Card>) -> u8 {
     let mut score = 0;
@@ -10,8 +10,7 @@ pub fn calculate_score(hand: &Vec<Card>) -> u8 {
         if card.value == 1 {
             score += 11;
             ace_counter += 1;
-        }
-        else {
+        } else {
             score += card.value;
         }
     }

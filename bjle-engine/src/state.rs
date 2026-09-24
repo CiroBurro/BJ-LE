@@ -1,5 +1,4 @@
-use crate::utils::{calculate_score, generate_deck};
-use bjle_shared::{Card, GameEvent, GamePhase, Player, PlayerId};
+use bjle_shared::{Card, GameEvent, GamePhase, player::*, utils::*};
 
 pub struct State {
     pub phase: GamePhase,
@@ -21,6 +20,31 @@ impl State {
             players: Vec::new(),
             revealed_seeds: Vec::new(),
             local_player_id,
+        }
+    }
+
+    pub fn view(&self) -> StateView {
+        let dealer_score = calculate_score(&self.dealer_hand);
+        StateView {
+            phase: self.phase.clone(),
+            local_player_id: self.local_player_id,
+            players: self
+                .players
+                .iter()
+                .map(|p| {
+                    let score = calculate_score(&p.hand);
+                    PlayerView {
+                        id: p.id,
+                        hand: p.hand.clone(),
+                        score,
+                        fishes: p.fishes,
+                        stood: p.stood,
+                        is_bust: score > 21,
+                    }
+                })
+                .collect(),
+            dealer_hand: self.dealer_hand.clone(),
+            dealer_score,
         }
     }
 
@@ -194,4 +218,13 @@ impl State {
     }
 }
 
-pub struct StateView {}
+/// Proiezione readonly dello State per la TUI.
+/// Non espone deck, seed, hash — solo ciò che serve al rendering.
+pub struct StateView {
+    pub phase: GamePhase,
+    pub local_player_id: PlayerId,
+    pub players: Vec<PlayerView>,
+    /// Carte visibili del dealer (la seconda è coperta durante Playing).
+    pub dealer_hand: Vec<Card>,
+    pub dealer_score: u8,
+}

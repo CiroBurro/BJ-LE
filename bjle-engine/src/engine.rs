@@ -1,5 +1,5 @@
 use crate::state::{State, StateView};
-use bjle_shared::{GameEvent, PlayerId, UserAction};
+use bjle_shared::{GameEvent, UserAction, player::PlayerId};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct Engine {
@@ -28,7 +28,12 @@ impl Engine {
             rx_tui_to_eng,
         }
     }
-    pub async fn run(&mut self) {
-        todo!()
+    pub async fn run(mut self) {
+        loop {
+            tokio::select! {
+                event = self.rx_mesh_to_eng.recv() => todo!(),
+                action = self.rx_tui_to_eng.recv() => todo!(),
+            }
+        }
     }
 }

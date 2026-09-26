@@ -10,11 +10,14 @@ pub struct Player {
     pub hand: Vec<Card>,
     pub split_hand: Option<Vec<Card>>,
     pub fishes: u16,
+    pub bet: u16,
     pub hash: [u8; 16],
     /// Giocatore ha piazzato la puntata ed è pronto.
     pub ready: bool,
-    /// Giocatore ha fatto Stand (o bust).
+    /// Giocatore ha fatto Stand (o bust) sulla mano principale.
     pub stood: bool,
+    /// Giocatore ha fatto Stand (o bust) sulla mano split.
+    pub split_stood: bool,
 }
 
 pub struct PlayerView {
@@ -22,6 +25,7 @@ pub struct PlayerView {
     pub hand: Vec<Card>,
     pub score: u8,
     pub fishes: u16,
+    pub bet: u16,
     pub stood: bool,
     pub is_bust: bool,
 }
@@ -45,9 +49,11 @@ impl Player {
                 hand: Vec::new(),
                 split_hand: None,
                 fishes: 1000,
+                bet: 0,
                 hash,
                 ready: false,
                 stood: false,
+                split_stood: false,
             },
             seed,
         )
@@ -60,9 +66,11 @@ impl Player {
             hand: Vec::new(),
             split_hand: None,
             fishes: 1000,
+            bet: 0,
             hash,
             ready: false,
             stood: false,
+            split_stood: false,
         }
     }
 
@@ -75,7 +83,11 @@ impl Player {
 
     pub fn add_card(&mut self, card: Card, split_hand: bool) {
         if split_hand {
-            self.split_hand.as_mut().unwrap().push(card);
+            if self.split_hand != None {
+                self.split_hand.as_mut().unwrap().push(card);
+            } else {
+                self.split_hand = Some(vec![card]);
+            }
         } else {
             self.hand.push(card);
         }
@@ -88,6 +100,7 @@ impl Player {
             hand: self.hand.clone(),
             score,
             fishes: self.fishes,
+            bet: self.bet,
             stood: self.stood,
             is_bust: score > 21,
         }

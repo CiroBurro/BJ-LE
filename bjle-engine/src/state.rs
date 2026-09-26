@@ -28,21 +28,7 @@ impl State {
         StateView {
             phase: self.phase.clone(),
             local_player_id: self.local_player_id,
-            players: self
-                .players
-                .iter()
-                .map(|p| {
-                    let score = calculate_score(&p.hand);
-                    PlayerView {
-                        id: p.id,
-                        hand: p.hand.clone(),
-                        score,
-                        fishes: p.fishes,
-                        stood: p.stood,
-                        is_bust: score > 21,
-                    }
-                })
-                .collect(),
+            players: self.players.iter().map(|p| p.view()).collect(),
             dealer_hand: self.dealer_hand.clone(),
             dealer_score,
         }
@@ -149,23 +135,101 @@ impl State {
                     .iter_mut()
                     .find(|p| p.id == player_id)
                     .ok_or("player sconosciuto")?;
+
                 match action {
-                    Action::Hit => {
-                        let card = self.deck.remove(0);
-                        player.add_card(card, false);
-                        // bust: turno finisce automaticamente
+                    Action::Hit { split } => {
+                        if split {
+                            if player.split_hand.is_none() {
+                                return Err("nessuna mano split su cui pescare");
+                            }
+                            if player.split_stood {
+                                return Err("mano split già conclusa");
+                            }
+                            let card = self.deck.remove(0);
+                            player.add_card(card, true);
+                            // bust sulla split: chiude la mano split automaticamente
+                            if calculate_score(player.split_hand.as_ref().unwrap()) > 21 {
+                                player.split_stood = true;
+                            }
+                        } else {
+                            if player.stood {
+                                return Err("mano principale già conclusa");
+                            }
+                            let card = self.deck.remove(0);
+                            player.add_card(card, false);
+                            // bust sulla principale: chiude la mano principale automaticamente
+                            if calculate_score(&player.hand) > 21 {
+                                player.stood = true;
+                            }
+                        }
                     }
                     Action::Stand => {
                         player.stood = true;
+                        // Se non ha la split, anche split_stood = true così la
+                        // condizione finale è uniforme.
+                        if player.split_hand.is_none() {
+                            player.split_stood = true;
+                        }
                     }
-                    _ => {} // ponytail: Double/Split, aggiungere quando serve
+                    Action::StandSplit => {
+                        if player.split_hand.is_none() {
+                            return Err("nessuna mano split");
+                        }
+                        player.split_stood = true;
+                    }
+                    Action::Double => {
+                        if player.fishes < player.bet {
+                            return Err("fishes insufficienti per raddoppiare");
+                        }
+                        if player.hand.len() != 2 {
+                            return Err("double solo con 2 carte in mano");
+                        }
+                        player.fishes -= player.bet;
+                        player.bet *= 2;
+                        let card = self.deck.remove(0);
+                        player.add_card(card, false);
+                        // Double implica stand obbligatorio dopo la carta.
+                        player.stood = true;
+                        if player.split_hand.is_none() {
+                            player.split_stood = true;
+                        }
+                    }
+                    Action::Split => {
+                        if player.hand.len() != 2 {
+                            return Err("split solo con 2 carte in mano");
+                        }
+                        if player.hand[0].value != player.hand[1].value {
+                            return Err("split solo con carte dello stesso valore");
+                        }
+                        if player.split_hand.is_some() {
+                            return Err("split già effettuato");
+                        }
+                        if player.fishes < player.bet {
+                            return Err("fishes insufficienti per lo split");
+                        }
+                        player.fishes -= player.bet; // seconda puntata uguale alla prima
+                        // Sposta la seconda carta nella mano split.
+                        let second = player.hand.pop().unwrap();
+                        player.split_hand = Some(vec![second]);
+                        // Pesca una carta per ciascuna mano.
+                        let card_main = self.deck.remove(0);
+                        player.add_card(card_main, false);
+                        let card_split = self.deck.remove(0);
+                        player.add_card(card_split, true);
+                    }
                 }
 
-                if self
-                    .players
-                    .iter()
-                    .all(|p| p.stood || calculate_score(&p.hand) > 21)
-                {
+                // Il turno del giocatore è finito quando entrambe le mani
+                // (o l'unica mano se non ha splittato) sono stood/bust.
+                let player_done = |p: &Player| {
+                    let main_done = p.stood || calculate_score(&p.hand) > 21;
+                    let split_done = p.split_hand.is_none()
+                        || p.split_stood
+                        || calculate_score(p.split_hand.as_ref().unwrap()) > 21;
+                    main_done && split_done
+                };
+
+                if self.players.iter().all(|p| player_done(p)) {
                     self.play_dealer_turn();
                     self.phase = GamePhase::Done;
                 }

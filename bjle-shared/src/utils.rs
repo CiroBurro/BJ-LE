@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream:bjle-shared/src/utils.rs
 use crate::{Card, Suit};
-=======
-use bjle_shared::{Card, Suit};
->>>>>>> Stashed changes:bjle-engine/src/utils.rs
 use rand::SeedableRng;
 use rand::prelude::SliceRandom;
 use rand_chacha::ChaCha8Rng;
@@ -14,11 +10,8 @@ pub fn calculate_score(hand: &Vec<Card>) -> u8 {
         if card.value == 1 {
             score += 11;
             ace_counter += 1;
-<<<<<<< Updated upstream:bjle-shared/src/utils.rs
-=======
         } else if card.value > 10 {
             score += 10;
->>>>>>> Stashed changes:bjle-engine/src/utils.rs
         } else {
             score += card.value;
         }

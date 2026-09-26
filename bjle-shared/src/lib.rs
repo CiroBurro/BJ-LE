@@ -26,8 +26,9 @@ impl Card {
 // Azioni di gioco
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Action {
-    Hit,
+    Hit { split: bool },
     Stand,
+    StandSplit, // Stand sulla mano split, continua sulla mano principale
     Double,
     Split,
 }

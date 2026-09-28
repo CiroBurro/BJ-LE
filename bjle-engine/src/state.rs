@@ -1,10 +1,11 @@
-use bjle_shared::{Card, GameEvent, GamePhase, player::*, utils::*};
+use bjle_shared::{Action, Card, GameEvent, GamePhase, player::*, utils::*};
 
 pub struct State {
     pub phase: GamePhase,
     pub deck: Vec<Card>,
     pub dealer_hand: Vec<Card>,
     pub players: Vec<Player>,
+    pub player_idx: usize,
     /// Seed rivelati finora: (player_id, seed). Popolato durante Revealing.
     revealed_seeds: Vec<(PlayerId, [u8; 16])>,
     /// player_id locale — serve per decidere se rispondere a RequestSync.
@@ -18,6 +19,7 @@ impl State {
             deck: Vec::new(),
             dealer_hand: Vec::new(),
             players: Vec::new(),
+            player_idx: 0,
             revealed_seeds: Vec::new(),
             local_player_id,
         }
@@ -29,6 +31,7 @@ impl State {
             phase: self.phase.clone(),
             local_player_id: self.local_player_id,
             players: self.players.iter().map(|p| p.view()).collect(),
+            player_idx: self.player_idx,
             dealer_hand: self.dealer_hand.clone(),
             dealer_score,
         }
@@ -123,9 +126,9 @@ impl State {
                     return Err("Fishes insufficienti per la puntata selezionata");
                 }
                 player.bet = amount;
+                player.fishes -= amount;
                 Ok(None)
             }
-
             (GamePhase::Betting, GameEvent::TurnReady { player_id }) => {
                 let player = self
                     .players
@@ -143,7 +146,14 @@ impl State {
 
             // ── PLAYING ──────────────────────────────────────────────────────
             (GamePhase::Playing, GameEvent::PlayerAction { player_id, action }) => {
-                use bjle_shared::Action;
+                // Valida che sia il turno del player corretto.
+                if self.player_idx >= self.players.len() {
+                    return Err("indice player fuori bounds");
+                }
+                if self.players[self.player_idx].id != player_id {
+                    return Err("non è il tuo turno");
+                }
+
                 let player = self
                     .players
                     .iter_mut()
@@ -222,6 +232,7 @@ impl State {
                             return Err("fishes insufficienti per lo split");
                         }
                         player.fishes -= player.bet; // seconda puntata uguale alla prima
+                        player.bet *= 2;
                         // Sposta la seconda carta nella mano split.
                         let second = player.hand.pop().unwrap();
                         player.split_hand = Some(vec![second]);
@@ -243,6 +254,12 @@ impl State {
                     main_done && split_done
                 };
 
+                // Se il player corrente ha finito, avanza al prossimo.
+                if player_done(&self.players[self.player_idx]) {
+                    self.advance_turn();
+                }
+
+                // Se tutti hanno finito, dealer gioca e finisce la partita.
                 if self.players.iter().all(|p| player_done(p)) {
                     self.play_dealer_turn();
                     self.phase = GamePhase::Done;
@@ -254,8 +271,55 @@ impl State {
                 Ok(None)
             }
 
+            // ── DONE ──────────────────────────────────────────────────────
+            (GamePhase::Done, _) => {
+                self.payout();
+                Ok(None)
+            }
+
             _ => Err("evento non valido per la fase corrente"),
         }
+    }
+
+    pub fn payout(&mut self) {
+        let dealer_score = calculate_score(&self.dealer_hand);
+        let dealer_blackjack = self.dealer_hand.len() == 2 && dealer_score == 21;
+
+        for p in self.players.iter_mut() {
+            // Mano principale
+            let main_score = calculate_score(&p.hand);
+            let main_blackjack = p.hand.len() == 2 && main_score == 21;
+            let bet_per_hand = p.bet / 2; // dopo split bet è doppio; se no split, bet/2 = bet_original
+            let main_bet = if p.split_hand.is_some() { bet_per_hand } else { p.bet };
+
+            p.fishes = p.fishes.saturating_add_signed(Self::hand_result(main_score, dealer_score, main_blackjack && !dealer_blackjack, main_bet));
+
+            // Mano split (se presente)
+            if let Some(ref split_hand) = p.split_hand {
+                let split_score = calculate_score(split_hand);
+                let split_blackjack = split_hand.len() == 2 && split_score == 21;
+                // La seconda puntata è uguale alla prima
+                p.fishes = p.fishes.saturating_add_signed(Self::hand_result(split_score, dealer_score, split_blackjack && !dealer_blackjack, bet_per_hand));
+            }
+        }
+    }
+
+    /// Calcola il delta fishes per una singola mano.
+    /// Ritorna valore positivo (vincita netta), negativo (perdita), o 0 (push).
+    fn hand_result(player_score: u8, dealer_score: u8, is_blackjack: bool, bet: u16) -> i16 {
+        if player_score > 21 {
+            return -(bet as i16); // bust
+        }
+        if dealer_score > 21 || dealer_score < player_score {
+            if is_blackjack {
+                return (bet as i16 * 3) / 2; // blackjack paga 3:2
+            }
+            return bet as i16; // win 1:1
+        }
+        if dealer_score == player_score {
+            return 0; // push
+        }
+        -(bet as i16) // dealer vince
     }
 
     // ── Helpers privati ──────────────────────────────────────────────────────
@@ -294,6 +358,24 @@ impl State {
             self.dealer_hand.push(self.deck.remove(0));
         }
     }
+
+    /// Avanza al prossimo player che deve ancora giocare.
+    /// Salta quelli già done (stood/bust).
+    fn advance_turn(&mut self) {
+        let player_done = |p: &Player| {
+            let main_done = p.stood || calculate_score(&p.hand) > 21;
+            let split_done = p.split_hand.is_none()
+                || p.split_stood
+                || calculate_score(p.split_hand.as_ref().unwrap()) > 21;
+            main_done && split_done
+        };
+
+        let mut idx = self.player_idx + 1;
+        while idx < self.players.len() && player_done(&self.players[idx]) {
+            idx += 1;
+        }
+        self.player_idx = idx.min(self.players.len());
+    }
 }
 
 /// Proiezione readonly dello State per la TUI.
@@ -302,6 +384,7 @@ pub struct StateView {
     pub phase: GamePhase,
     pub local_player_id: PlayerId,
     pub players: Vec<PlayerView>,
+    pub player_idx: usize,
     /// Carte visibili del dealer (la seconda è coperta durante Playing).
     pub dealer_hand: Vec<Card>,
     pub dealer_score: u8,

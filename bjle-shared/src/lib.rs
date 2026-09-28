@@ -91,6 +91,10 @@ pub enum GameEvent {
         player_id: PlayerId,
         action: Action,
     },
+    PlaceBet {
+        player_id: PlayerId,
+        amount: u16,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

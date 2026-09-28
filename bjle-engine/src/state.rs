@@ -112,6 +112,20 @@ impl State {
             }
 
             // ── BETTING ──────────────────────────────────────────────────────
+            (GamePhase::Betting, GameEvent::PlaceBet { player_id, amount }) => {
+                let player = self
+                    .players
+                    .iter_mut()
+                    .find(|p| p.id == player_id)
+                    .ok_or("player sconosciuto")?;
+
+                if player.fishes < amount {
+                    return Err("Fishes insufficienti per la puntata selezionata");
+                }
+                player.bet = amount;
+                Ok(None)
+            }
+
             (GamePhase::Betting, GameEvent::TurnReady { player_id }) => {
                 let player = self
                     .players

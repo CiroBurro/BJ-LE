@@ -143,14 +143,13 @@ impl Engine {
 
             // ── Betting ───────────────────────────────────────────────────────
             UserAction::PlaceBet { amount } => {
-                // La puntata è locale per ora: aggiorna fishes e basta.
-                if let Some(p) = self.state.players.iter_mut().find(|p| p.id == id) {
-                    if p.fishes < amount {
-                        eprintln!("[engine] fishes insufficienti");
-                        return Ok(());
-                    }
-                    p.fishes -= amount;
-                    p.bet = amount;
+                let event = GameEvent::PlaceBet {
+                    player_id: id,
+                    amount,
+                };
+                match self.state.apply(event.clone()) {
+                    Ok(_) => self.tx_eng_to_mesh.send(event).await?,
+                    Err(e) => eprintln!("[engine] puntata non valida: {e}"),
                 }
             }
 

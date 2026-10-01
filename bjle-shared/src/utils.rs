@@ -16,12 +16,10 @@ pub fn calculate_score(hand: &Vec<Card>) -> u8 {
             score += card.value;
         }
     }
-
     while score > 21 && ace_counter > 0 {
         score -= 10;
         ace_counter -= 1;
     }
-
     score
 }
 

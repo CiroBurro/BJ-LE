@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bluer.workspace = true
+bincode-next.workspace = true
+maplit.workspace = true
+tokio.workspace = true
+futures.workspace = true

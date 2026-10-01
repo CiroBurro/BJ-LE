@@ -41,10 +41,27 @@ impl Engine {
     pub async fn run(mut self) -> Result<(), mpsc::error::SendError<GameEvent>> {
         loop {
             tokio::select! {
-                Some(event)  = self.rx_mesh_to_eng.recv() => self.handle_mesh_event(event).await?,
-                Some(action) = self.rx_tui_to_eng.recv()  => self.handle_tui_action(action).await?,
+                biased;
+                event_opt  = self.rx_mesh_to_eng.recv() => {
+                    match event_opt {
+                        Some(event) => self.handle_mesh_event(event).await?,
+                        None => break, // canale mesh chiuso
+                    }
+                }
+                action_opt = self.rx_tui_to_eng.recv() => {
+                    match action_opt {
+                        Some(action) => {
+                            self.handle_tui_action(&action).await?;
+                            if action == UserAction::Quit {
+                                return Ok(());
+                            }
+                        }
+                        None => break, // canale TUI chiuso
+                    }
+                }
             }
         }
+        Ok(())
     }
 
     // ── Mesh → Engine ────────────────────────────────────────────────────────
@@ -78,13 +95,13 @@ impl Engine {
 
     async fn handle_tui_action(
         &mut self,
-        action: UserAction,
+        action: &UserAction,
     ) -> Result<(), mpsc::error::SendError<GameEvent>> {
         let id = self.state.local_player_id;
 
         match action {
             // ── Lobby ─────────────────────────────────────────────────────────
-            UserAction::CreateRoom { room_id } => {
+            &UserAction::CreateRoom { room_id } => {
                 self.is_creator = true;
                 self.current_room = Some(room_id);
                 // Annuncia sé stesso sulla mesh.
@@ -105,7 +122,7 @@ impl Engine {
                 self.tx_eng_to_mesh.send(event).await?;
             }
 
-            UserAction::JoinRoom { room_id } => {
+            &UserAction::JoinRoom { room_id } => {
                 self.is_creator = false;
                 self.current_room = Some(room_id);
                 let hash = self
@@ -129,7 +146,7 @@ impl Engine {
             }
 
             // Solo il creatore può avviare.
-            UserAction::StartGame => {
+            &UserAction::StartGame => {
                 if !self.is_creator {
                     eprintln!("[engine] solo il creatore può avviare la partita");
                     return Ok(());
@@ -142,7 +159,7 @@ impl Engine {
             }
 
             // ── Betting ───────────────────────────────────────────────────────
-            UserAction::PlaceBet { amount } => {
+            &UserAction::PlaceBet { amount } => {
                 let event = GameEvent::PlaceBet {
                     player_id: id,
                     amount,
@@ -153,17 +170,17 @@ impl Engine {
                 }
             }
 
-            UserAction::ConfirmReady => {
+            &UserAction::ConfirmReady => {
                 let event = GameEvent::TurnReady { player_id: id };
                 let _ = self.state.apply(event.clone());
                 self.tx_eng_to_mesh.send(event).await?;
             }
 
             // ── Playing ───────────────────────────────────────────────────────
-            UserAction::Play(action) => {
+            UserAction::Play(act) => {
                 let event = GameEvent::PlayerAction {
                     player_id: id,
-                    action,
+                    action: act.clone(),
                 };
                 match self.state.apply(event.clone()) {
                     Ok(_) => self.tx_eng_to_mesh.send(event).await?,
@@ -172,7 +189,7 @@ impl Engine {
             }
 
             // ── Globale ───────────────────────────────────────────────────────
-            UserAction::Quit => {
+            &UserAction::Quit => {
                 let event = GameEvent::Leave { player_id: id };
                 let _ = self.state.apply(event.clone());
                 self.tx_eng_to_mesh.send(event).await?;

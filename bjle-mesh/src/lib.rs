@@ -1,7 +1,6 @@
 use bluer::adv::{Advertisement, AdvertisementHandle, Type};
-use bluer::{Adapter, AdapterEvent, DeviceEvent, DeviceProperty, Session};
-use futures::Stream;
-use futures::{StreamExt, pin_mut};
+use bluer::{Adapter, AdapterEvent, DiscoveryFilter, DiscoveryTransport, Session};
+use futures::{Stream, StreamExt};
 use maplit::btreemap;
 
 pub struct Peer {
@@ -39,8 +38,18 @@ impl Peer {
     }
 
     pub async fn start_listening(&mut self) -> bluer::Result<()> {
-        // This returns a Stream of AdapterEvent
-        let stream = self.adapter.discover_devices().await?;
+        if self.events.is_some() {
+            return Ok(());
+        }
+
+        self.adapter
+            .set_discovery_filter(DiscoveryFilter {
+                transport: DiscoveryTransport::Le,
+                duplicate_data: true,
+                ..Default::default()
+            })
+            .await?;
+        let stream = self.adapter.discover_devices_with_changes().await?;
         self.events = Some(Box::new(stream));
         Ok(())
     }
@@ -51,36 +60,24 @@ impl Peer {
     }
 
     pub async fn get_data(&mut self) -> bluer::Result<()> {
-        // Take the stream out of the Option, or return an error if not set
-        let mut adapter_events = match self.events.take() {
+        // Borrow the stream so cancelling this future does not drop discovery.
+        let adapter_events = match self.events.as_mut() {
             Some(stream) => stream,
-            None => return Ok(()), // or return an error
+            None => return Ok(()),
         };
 
         while let Some(ev) = adapter_events.next().await {
             if let AdapterEvent::DeviceAdded(addr) = ev {
                 let device = self.adapter.device(addr)?;
 
-                // **Key change:** Listen to the device's own event stream
-                let device_events = device.events().await?;
-                pin_mut!(device_events);
-
-                while let Some(device_event) = device_events.next().await {
-                    if let DeviceEvent::PropertyChanged(DeviceProperty::ManufacturerData(md)) =
-                        device_event
-                    {
-                        // `md` is a BTreeMap<u16, Vec<u8>>
-                        if let Some(data) = md.get(&0xDCBA) {
-                            // `data` is the Vec<u8> payload you want
-                            println!("Received manufacturer data for {:?}: {:?}", addr, data);
-                            // You can now process `data` as needed.
-                        }
+                // DeviceAdded also reports property changes on this discovery stream.
+                if let Some(md) = device.manufacturer_data().await? {
+                    if let Some(data) = md.get(&0xDCBA) {
+                        println!("Received manufacturer data for {:?}: {:?}", addr, data);
                     }
                 }
             }
         }
-        // Put the stream back if you want to keep listening
-        self.events = Some(adapter_events);
         Ok(())
     }
 }
